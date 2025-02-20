@@ -1,0 +1,79 @@
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from nltk import sent_tokenize
+import pandas as pd
+import re
+import nltk
+
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer, PorterStemmer
+
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('wordnet')
+
+
+base_path = os.path.dirname(os.path.abspath(__file__))  
+file_path = os.path.join(base_path, "Daraz Online Shopping App.csv")
+
+daraz = pd.read_csv(file_path)
+
+## 칼럼 정리
+daraz = daraz.drop(columns=['reviewId', 'replyContent', 'repliedAt', 'at'])
+
+def assign_category(x):
+    if x == 0:
+        return 0
+    elif 1 <= x <= 5:
+        return 1
+    elif 5 < x <= 10:
+        return 2
+    elif 11 <= x <= 50:
+        return 3
+    elif 51 <= x <= 100:
+        return 4
+    else:
+        return 5
+
+daraz['category'] = daraz['thumbsUpCount'].apply(assign_category)
+
+##content 전처리
+
+# 불용어 리스트
+custom_stopwords = set(stopwords.words('english')).union({"want", "on", "buy", "give", "every", "single", "pop", "one", "look"})
+
+# 어간, 표제어 추출기  --> 어근이 제대로 안 나와서 PorterStemmer라는 걸 추가로 활용했어요!
+lemmatizer = WordNetLemmatizer()
+stemmer = PorterStemmer()
+
+# 텍스트 전처리 함수 정의
+def preprocess_text(text):
+    if not isinstance(text, str):  # NaN 방지
+        return ""
+
+    # 클렌징
+    text = text.lower() 
+    text = re.sub(r'<.*?>', '', text)
+    text = re.sub(r'[^a-z\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip() 
+
+    # 토큰화
+    tokens = word_tokenize(text)
+
+    # 불용어 제거
+    tokens = [word for word in tokens if word not in custom_stopwords]
+
+    # 어근 추출 및 표제어 추출(pos 태그 verb로 설정)
+    tokens = [lemmatizer.lemmatize(word) for word in tokens]
+    tokens = [lemmatizer.lemmatize(word, pos="v") for word in tokens]
+
+    #중복 단어 제거
+    tokens = list(dict.fromkeys(tokens))
+
+    return ' '.join(tokens)
+
+daraz['content'] = daraz['content'].apply(preprocess_text)
